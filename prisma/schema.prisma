@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          Role      @default(CUSTOMER)
+  artisan       Artisan?
+  orders        Order[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Artisan {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopName    String
+  region      String
+  bio         String?   @db.Text
+  phone       String?
+  address     String?   @db.Text
+  products    Product[]
+  orders      Order[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("artisans")
+}
+
+model Product {
+  id              String    @id @default(cuid())
+  name            String
+  description     String    @db.Text
+  story           String?   @db.Text
+  category        String
+  price           Decimal   @db.Decimal(10, 2)
+  compareAtPrice  Decimal?  @db.Decimal(10, 2)
+  sku             String?   @unique
+  stock           Int
+  images          String[]
+  featured        Boolean   @default(false)
+  dimensions      String?
+  weight          String?
+  material        String?
+  careInstructions String?  @db.Text
+  artisanId       String
+  artisan         Artisan   @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  orderItems      OrderItem[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([category])
+  @@index([artisanId])
+  @@map("products")
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artisanId     String
+  artisan       Artisan     @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  items         OrderItem[]
+  status        OrderStatus @default(PENDING)
+  total         Decimal     @db.Decimal(10, 2)
+  shippingInfo  Json
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([artisanId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+enum Role {
+  ADMIN
+  ARTISAN
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
