@@ -74,8 +74,8 @@ export function ProductForm() {
       const uploadedUrls = []
       for (const image of images) {
         toast({
-          title: "Uploading...",
-          description: `Uploading ${image.name}`,
+          title: "Uploading image",
+          description: `Uploading ${image.name}...`,
         })
 
         const formData = new FormData()
@@ -96,8 +96,8 @@ export function ProductForm() {
       }
 
       toast({
-        title: "Creating product...",
-        description: "Saving product details",
+        title: "Creating product",
+        description: "Please wait...",
       })
 
       // Create product with uploaded image URLs
@@ -108,9 +108,6 @@ export function ProductForm() {
         },
         body: JSON.stringify({
           ...values,
-          price: Number.parseFloat(values.price),
-          compareAtPrice: values.compareAtPrice ? Number.parseFloat(values.compareAtPrice) : null,
-          stock: Number.parseInt(values.stock),
           images: uploadedUrls,
         }),
       })
@@ -123,15 +120,19 @@ export function ProductForm() {
 
       toast({
         title: "Success",
-        description: "Product created successfully",
+        description: "Product created successfully!",
       })
 
-      router.push("/dashboard/products")
-      router.refresh()
+      // Add a small delay before redirecting
+      setTimeout(() => {
+        router.push("/dashboard/products")
+        router.refresh()
+      }, 1500)
     } catch (error) {
+      console.error("Product creation error:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        description: error instanceof Error ? error.message : "Something went wrong",
         variant: "destructive",
       })
     } finally {

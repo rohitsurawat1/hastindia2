@@ -56,7 +56,7 @@ export function ArtisanProfileForm({ existingProfile }: ArtisanProfileFormProps)
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || "Something went wrong")
+        throw new Error(data.error || "Failed to create profile")
       }
 
       toast({
@@ -64,8 +64,11 @@ export function ArtisanProfileForm({ existingProfile }: ArtisanProfileFormProps)
         description: existingProfile ? "Profile updated successfully" : "Profile created successfully",
       })
 
-      router.refresh()
-      router.push("/dashboard/products")
+      // Add a small delay before redirecting
+      setTimeout(() => {
+        router.refresh()
+        router.push("/dashboard/products")
+      }, 1000)
     } catch (error) {
       toast({
         title: "Error",

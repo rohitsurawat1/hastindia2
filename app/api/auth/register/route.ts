@@ -1,57 +1,56 @@
-import { hash } from "bcryptjs"
+import bcrypt from "bcryptjs"
 import { NextResponse } from "next/server"
-import { z } from "zod"
 
-import { prisma } from "@/lib/db"
+import { prisma } from "@/lib/prisma"
 
-const registerSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(8),
-  role: z.enum(["CUSTOMER", "ARTISAN"]),
-})
-
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const json = await req.json()
-    const body = registerSchema.parse(json)
+    const data = await request.json()
+    const { email, password, name } = data
 
-    const exists = await prisma.user.findUnique({
-      where: {
-        email: body.email,
-      },
-    })
-
-    if (exists) {
-      return new NextResponse("User already exists", { status: 409 })
+    if (!email || !password || !name) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const hashedPassword = await hash(body.password, 10)
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    })
 
+    if (existingUser) {
+      return NextResponse.json({ error: "User already exists" }, { status: 400 })
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // Create user with a specific ID format
     const user = await prisma.user.create({
       data: {
-        name: body.name,
-        email: body.email,
+        email,
+        name,
         password: hashedPassword,
-        role: body.role,
+        role: "ARTISAN", // Set role to ARTISAN since they're registering as a seller
       },
     })
 
-    // If user is an artisan, create an artisan profile
-    if (body.role === "ARTISAN") {
-      await prisma.artisan.create({
-        data: {
-          userId: user.id,
-          shopName: `${user.name}'s Shop`, // Default shop name
-          region: "Not specified", // Default region
-        },
-      })
-    }
+    // Log the created user for debugging
+    console.log("Created user:", {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    })
 
-    return new NextResponse("User created successfully", { status: 201 })
+    return NextResponse.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    })
   } catch (error) {
     console.error("Registration error:", error)
-    return new NextResponse("Internal Server Error", { status: 500 })
+    return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
   }
 }
 

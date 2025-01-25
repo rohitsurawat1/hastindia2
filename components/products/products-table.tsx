@@ -3,11 +3,30 @@
 import Image from "next/image"
 import Link from "next/link"
 import { MoreHorizontal } from "lucide-react"
-import type { Product } from "@prisma/client"
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+
+interface Product {
+  id: string
+  name: string
+  description: string
+  category: string
+  price: string // Changed from Decimal to string
+  compareAtPrice: string | null // Changed from Decimal to string
+  sku: string
+  stock: number
+  images: string[]
+  featured: boolean
+  dimensions: string | null
+  weight: string | null
+  material: string | null
+  careInstructions: string | null
+  artisanId: string
+  createdAt: string // Changed from Date to string
+  updatedAt: string // Changed from Date to string
+}
 
 interface ProductsTableProps {
   products: Product[]
@@ -57,7 +76,7 @@ export function ProductsTable({ products }: ProductsTableProps) {
               </div>
             </TableCell>
             <TableCell>{product.category}</TableCell>
-            <TableCell>₹{product.price.toString()}</TableCell>
+            <TableCell>₹{Number.parseFloat(product.price).toLocaleString("en-IN")}</TableCell>
             <TableCell>{product.stock}</TableCell>
             <TableCell>
               <DropdownMenu>

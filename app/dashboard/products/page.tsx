@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button"
 import { ProductsTable } from "@/components/products/products-table"
 import Link from "next/link"
 
+// Helper function to serialize Decimal values
+function serializeProduct(product: any) {
+  return {
+    ...product,
+    price: product.price.toString(),
+    compareAtPrice: product.compareAtPrice?.toString() || null,
+    createdAt: product.createdAt.toISOString(),
+    updatedAt: product.updatedAt.toISOString(),
+  }
+}
+
 export default async function ProductsPage() {
   const session = await getServerSession(authOptions)
 
@@ -40,6 +51,9 @@ export default async function ProductsPage() {
     )
   }
 
+  // Serialize the products data
+  const serializedProducts = artisan.products.map(serializeProduct)
+
   return (
     <div className="container py-8">
       <div className="flex items-center justify-between">
@@ -56,7 +70,7 @@ export default async function ProductsPage() {
       </div>
 
       <div className="mt-8">
-        <ProductsTable products={artisan.products} />
+        <ProductsTable products={serializedProducts} />
       </div>
     </div>
   )

@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -28,12 +31,11 @@ model Artisan {
   userId      String    @unique
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   shopName    String
+  bio         String?
   region      String
-  bio         String?   @db.Text
   phone       String?
-  address     String?   @db.Text
+  address     String?
   products    Product[]
-  orders      Order[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -43,27 +45,25 @@ model Artisan {
 model Product {
   id              String    @id @default(cuid())
   name            String
-  description     String    @db.Text
-  story           String?   @db.Text
+  description     String
+  story           String?
   category        String
-  price           Decimal   @db.Decimal(10, 2)
-  compareAtPrice  Decimal?  @db.Decimal(10, 2)
-  sku             String?   @unique
-  stock           Int
-  images          String[]
-  featured        Boolean   @default(false)
-  dimensions      String?
-  weight          String?
-  material        String?
-  careInstructions String?  @db.Text
-  artisanId       String
-  artisan         Artisan   @relation(fields: [artisanId], references: [id], onDelete: Cascade)
-  orderItems      OrderItem[]
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  price          Decimal
+  compareAtPrice  Decimal?
+  sku            String    @unique
+  stock          Int       @default(0)
+  images         String[]
+  featured       Boolean   @default(false)
+  dimensions     String?
+  weight         String?
+  material       String?
+  careInstructions String?
+  artisanId      String
+  artisan        Artisan   @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  orderItems     OrderItem[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  @@index([category])
-  @@index([artisanId])
   @@map("products")
 }
 
@@ -71,17 +71,12 @@ model Order {
   id            String      @id @default(cuid())
   userId        String
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  artisanId     String
-  artisan       Artisan     @relation(fields: [artisanId], references: [id], onDelete: Cascade)
-  items         OrderItem[]
   status        OrderStatus @default(PENDING)
-  total         Decimal     @db.Decimal(10, 2)
-  shippingInfo  Json
+  items         OrderItem[]
+  total         Decimal
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  @@index([userId])
-  @@index([artisanId])
   @@map("orders")
 }
 
@@ -90,12 +85,12 @@ model OrderItem {
   orderId   String
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
   quantity  Int
-  price     Decimal  @db.Decimal(10, 2)
+  price     Decimal
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([orderId])
-  @@index([productId])
   @@map("order_items")
 }
 
@@ -112,4 +107,3 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
 }
-

@@ -8,77 +8,93 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Log the entire session for debugging
+    console.log("Current session:", session)
+
+    if (!session?.user?.id) {
+      console.log("No session or user ID found:", session)
+      return NextResponse.json({ error: "Unauthorized - User ID not found" }, { status: 401 })
     }
 
-    // Check if profile already exists
-    const existingProfile = await prisma.artisan.findFirst({
-      where: { userId: session.user.id },
+    console.log("Creating profile for user ID:", session.user.id)
+
+    // Verify the user exists and get their current data
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: {
+        artisan: true,
+      },
     })
 
-    if (existingProfile) {
+    if (!user) {
+      console.log("User not found for ID:", session.user.id)
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    console.log("Found user:", {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      hasArtisan: !!user.artisan,
+    })
+
+    if (user.artisan) {
       return NextResponse.json({ error: "Profile already exists" }, { status: 400 })
     }
 
     const json = await request.json()
 
+    // Validate required fields
+    if (!json.shopName || !json.region) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Update user role to ARTISAN if it's not already
+    if (user.role !== "ARTISAN") {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { role: "ARTISAN" },
+      })
+    }
+
+    // Create the artisan profile
     const artisan = await prisma.artisan.create({
       data: {
-        ...json,
-        userId: session.user.id,
+        userId: user.id,
+        shopName: json.shopName,
+        bio: json.bio || null,
+        region: json.region,
+        phone: json.phone || null,
+        address: json.address || null,
       },
     })
 
+    console.log("Created artisan profile:", artisan)
+
     return NextResponse.json(artisan)
   } catch (error) {
-    console.error("Profile creation error:", error)
-    return NextResponse.json({ error: "Failed to create profile" }, { status: 500 })
-  }
-}
-
-export async function PUT(request: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const json = await request.json()
-
-    const artisan = await prisma.artisan.update({
-      where: { userId: session.user.id },
-      data: json,
+    console.error("Profile creation error:", {
+      error,
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
     })
 
-    return NextResponse.json(artisan)
-  } catch (error) {
-    console.error("Profile update error:", error)
-    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
-  }
-}
-
-export async function GET(request: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (error.code === "P2002") {
+      return NextResponse.json({ error: "Profile already exists for this user" }, { status: 400 })
     }
 
-    const artisan = await prisma.artisan.findFirst({
-      where: { userId: session.user.id },
-    })
-
-    if (!artisan) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 })
+    if (error.code === "P2003") {
+      return NextResponse.json({ error: "Invalid user ID or user not found" }, { status: 400 })
     }
 
-    return NextResponse.json(artisan)
-  } catch (error) {
-    console.error("Profile fetch error:", error)
-    return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Failed to create profile",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 

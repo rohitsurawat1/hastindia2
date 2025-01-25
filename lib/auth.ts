@@ -1,34 +1,20 @@
 import { PrismaAdapter } from "@auth/prisma-adapter"
-import { NextAuthOptions } from "next-auth"
-import { getServerSession } from "next-auth/next"
+import type { NextAuthOptions } from "next-auth"
+import type { Adapter } from "next-auth/adapters"
 import CredentialsProvider from "next-auth/providers/credentials"
-import GoogleProvider from "next-auth/providers/google"
 import bcrypt from "bcryptjs"
 
-import { prisma } from "@/lib/db"
+import { prisma } from "@/lib/prisma"
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as Adapter,
   session: {
     strategy: "jwt",
   },
   pages: {
-    signIn: "/login",
+    signIn: "/auth/login",
   },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      profile(profile) {
-        return {
-          id: profile.sub,
-          name: profile.name,
-          email: profile.email,
-          image: profile.picture,
-          role: "CUSTOMER", // Default role for OAuth sign-ups
-        }
-      },
-    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -37,99 +23,79 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials")
+          return null
         }
 
         const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
+          where: { email: credentials.email },
         })
 
         if (!user || !user.password) {
-          throw new Error("Invalid credentials")
+          return null
         }
 
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password)
 
-        if (!isValid) {
-          throw new Error("Invalid credentials")
+        if (!isPasswordValid) {
+          return null
         }
+
+        // Log the user being authorized
+        console.log("Authorizing user:", {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+        })
 
         return {
           id: user.id,
-          name: user.name,
           email: user.email,
-          image: user.image,
+          name: user.name,
           role: user.role,
         }
       },
     }),
   ],
   callbacks: {
-    async session({ token, session }) {
-      if (token) {
-        session.user.id = token.id
-        session.user.name = token.name
-        session.user.email = token.email
-        session.user.image = token.picture
-        session.user.role = token.role
+    async jwt({ token, user, trigger, session }) {
+      if (user) {
+        token.id = user.id
+        token.role = user.role
       }
+
+      // Handle user updates
+      if (trigger === "update" && session) {
+        token = { ...token, ...session }
+      }
+
+      // Log the JWT token being created
+      console.log("JWT token:", token)
+
+      return token
+    },
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.id as string
+        session.user.role = token.role as string
+      }
+
+      // Log the session being created
+      console.log("Creating session:", session)
 
       return session
     },
-    async jwt({ token, user }) {
-      const dbUser = await prisma.user.findFirst({
-        where: {
-          email: token.email!,
-        },
-      })
-
-      if (!dbUser) {
-        if (user) {
-          token.id = user?.id
-          token.role = user?.role
-        }
-        return token
-      }
-
-      return {
-        id: dbUser.id,
-        name: dbUser.name,
-        email: dbUser.email,
-        picture: dbUser.image,
-        role: dbUser.role,
-      }
+  },
+  events: {
+    async signIn({ user }) {
+      console.log("User signed in:", user)
+    },
+    async signOut({ token }) {
+      console.log("User signed out:", token)
+    },
+    async createUser({ user }) {
+      console.log("User created:", user)
     },
   },
-}
-
-export const auth = () => getServerSession(authOptions)
-
-// Types
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string
-      name?: string | null
-      email?: string | null
-      image?: string | null
-      role: "ADMIN" | "ARTISAN" | "CUSTOMER"
-    }
-  }
-
-  interface User {
-    role: "ADMIN" | "ARTISAN" | "CUSTOMER"
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string
-    role: "ADMIN" | "ARTISAN" | "CUSTOMER"
-  }
+  debug: process.env.NODE_ENV === "development",
 }
 

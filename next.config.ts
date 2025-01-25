@@ -1,7 +1,16 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
-const nextConfig: NextConfig = {
-  /* config options here */
-};
+const config: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'hastindia-product-images.s3.eu-north-1.amazonaws.com',
+        port: '',
+        pathname: '/products/**',
+      },
+    ],
+  },
+}
 
-export default nextConfig;
+export default config
